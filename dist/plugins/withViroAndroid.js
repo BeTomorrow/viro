@@ -30,72 +30,73 @@ const withBranchAndroid = (config) => {
             else {
                 throw new Error("MainApplication.kt or MainApplication.java file not found.");
             }
-            fs_1.default.readFile(mainApplicationPath, "utf-8", (err, data) => {
-                const packageName = config?.android?.package;
+            let data = await fs_1.default.promises.readFile(mainApplicationPath, "utf-8");
+            const packageName = config?.android?.package;
+            if (isJava) {
+                data = (0, insertLinesHelper_1.insertLinesHelper)("import com.viromedia.bridge.ReactViroPackage;", `package ${packageName};`, data);
+            }
+            else {
+                // Handle Backticks in package names for Kotlin
+                const packageMatch = data.match(/package\s+[\w.`]+/);
+                if (!packageMatch) {
+                    throw new Error("Package declaration not found in MainApplication.kt");
+                }
+                data = (0, insertLinesHelper_1.insertLinesHelper)("import com.viromedia.bridge.ReactViroPackage", packageMatch[0], data);
+            }
+            const viroPlugin = config?.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "@reactvision/react-viro");
+            if (Array.isArray(viroPlugin)) {
+                if (Array.isArray(viroPlugin[1].android?.xRMode)) {
+                    viroPluginConfig = (viroPlugin[1].android?.xRMode).filter((mode) => ["AR", "GVR", "OVR_MOBILE"].includes(mode));
+                }
+                else if (["AR", "GVR", "OVR_MOBILE"].includes(viroPlugin[1]?.android?.xRMode)) {
+                    viroPluginConfig = [viroPlugin[1]?.android.xRMode];
+                }
+            }
+            let target = "";
+            for (const viroConfig of viroPluginConfig) {
                 if (isJava) {
-                    data = (0, insertLinesHelper_1.insertLinesHelper)("import com.viromedia.bridge.ReactViroPackage;", `package ${packageName};`, data);
+                    target =
+                        target +
+                            `      packages.add(new ReactViroPackage(ReactViroPackage.ViroPlatform.${viroConfig}))\n`;
                 }
                 else {
-                    // Handle Backticks in package names for Kotlin
-                    const packageMatch = data.match(/package\s+[\w.`]+/);
-                    if (!packageMatch) {
-                        throw new Error("Package declaration not found in MainApplication.kt");
-                    }
-                    data = (0, insertLinesHelper_1.insertLinesHelper)("import com.viromedia.bridge.ReactViroPackage", packageMatch[0], data);
+                    // Use proper Kotlin syntax for newer formats
+                    target =
+                        target +
+                            `            add(ReactViroPackage(ReactViroPackage.ViroPlatform.${viroConfig}))\n`;
                 }
-                const viroPlugin = config?.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "@reactvision/react-viro");
-                if (Array.isArray(viroPlugin)) {
-                    if (Array.isArray(viroPlugin[1].android?.xRMode)) {
-                        viroPluginConfig = (viroPlugin[1].android?.xRMode).filter((mode) => ["AR", "GVR", "OVR_MOBILE"].includes(mode));
-                    }
-                    else if (["AR", "GVR", "OVR_MOBILE"].includes(viroPlugin[1]?.android?.xRMode)) {
-                        viroPluginConfig = [viroPlugin[1]?.android.xRMode];
-                    }
+            }
+            if (isJava) {
+                data = (0, insertLinesHelper_1.insertLinesHelper)(target, "List<ReactPackage> packages = new PackageList(this).getPackages();", data);
+            }
+            else {
+                // Handle various MainApplication.kt formats
+                if (data.includes("// packages.add(new MyReactNativePackage());")) {
+                    data = (0, insertLinesHelper_1.insertLinesHelper)(target, "// packages.add(new MyReactNativePackage());", data);
                 }
-                let target = "";
-                for (const viroConfig of viroPluginConfig) {
-                    if (isJava) {
-                        target =
-                            target +
-                                `      packages.add(new ReactViroPackage(ReactViroPackage.ViroPlatform.${viroConfig}))\n`;
-                    }
-                    else {
-                        // Use proper Kotlin syntax for newer formats
-                        target =
-                            target +
-                                `            add(ReactViroPackage(ReactViroPackage.ViroPlatform.${viroConfig}))\n`;
-                    }
+                else if (data.includes("// add(MyReactNativePackage())")) {
+                    data = (0, insertLinesHelper_1.insertLinesHelper)(target, "// add(MyReactNativePackage())", data);
                 }
-                if (isJava) {
-                    data = (0, insertLinesHelper_1.insertLinesHelper)(target, "List<ReactPackage> packages = new PackageList(this).getPackages();", data);
+                else if (data.includes("// packages.add(MyReactNativePackage())")) {
+                    // Handle newer Expo format: // packages.add(MyReactNativePackage())
+                    data = (0, insertLinesHelper_1.insertLinesHelper)(target, "// packages.add(MyReactNativePackage())", data);
+                }
+                else if (data.includes("val packages = PackageList(this).packages")) {
+                    // Handle newer format where packages is declared as val
+                    data = (0, insertLinesHelper_1.insertLinesHelper)(target, "val packages = PackageList(this).packages", data);
                 }
                 else {
-                    // Handle various MainApplication.kt formats
-                    if (data.includes("// packages.add(new MyReactNativePackage());")) {
-                        data = (0, insertLinesHelper_1.insertLinesHelper)(target, "// packages.add(new MyReactNativePackage());", data);
-                    }
-                    else if (data.includes("// add(MyReactNativePackage())")) {
-                        data = (0, insertLinesHelper_1.insertLinesHelper)(target, "// add(MyReactNativePackage())", data);
-                    }
-                    else if (data.includes("// packages.add(MyReactNativePackage())")) {
-                        // Handle newer Expo format: // packages.add(MyReactNativePackage())
-                        data = (0, insertLinesHelper_1.insertLinesHelper)(target, "// packages.add(MyReactNativePackage())", data);
-                    }
-                    else if (data.includes("val packages = PackageList(this).packages")) {
-                        // Handle newer format where packages is declared as val
-                        data = (0, insertLinesHelper_1.insertLinesHelper)(target, "val packages = PackageList(this).packages", data);
-                    }
-                    else {
-                        throw new Error("Unable to insert Android packages into package list. Please create a new issue on GitHub and reference this message! " +
-                            "Expected to find one of: '// packages.add(new MyReactNativePackage());', '// add(MyReactNativePackage())', " +
-                            "'// packages.add(MyReactNativePackage())', or 'val packages = PackageList(this).packages'");
-                    }
+                    throw new Error("Unable to insert Android packages into package list. Please create a new issue on GitHub and reference this message! " +
+                        "Expected to find one of: '// packages.add(new MyReactNativePackage());', '// add(MyReactNativePackage())', " +
+                        "'// packages.add(MyReactNativePackage())', or 'val packages = PackageList(this).packages'");
                 }
-                fs_1.default.writeFile(mainApplicationPath, data, "utf-8", function (err) {
-                    if (err)
-                        console.log("Error writing MainApplication.java");
-                });
-            });
+            }
+            try {
+                await fs_1.default.promises.writeFile(mainApplicationPath, data, "utf-8");
+            }
+            catch (err) {
+                console.log("Error writing MainApplication.java");
+            }
             return config;
         },
     ]);
@@ -227,11 +228,11 @@ const withViroManifest = (config) => (0, config_plugins_1.withAndroidManifest)(c
     return newConfig;
 });
 const withViroAndroid = (config, props) => {
-    (0, config_plugins_1.withPlugins)(config, [[withBranchAndroid, props]]);
-    withViroProjectBuildGradle(config);
-    withViroManifest(config);
-    withViroSettingsGradle(config);
-    withViroAppBuildGradle(config);
+    config = (0, config_plugins_1.withPlugins)(config, [[withBranchAndroid, props]]);
+    config = withViroProjectBuildGradle(config);
+    config = withViroManifest(config);
+    config = withViroSettingsGradle(config);
+    config = withViroAppBuildGradle(config);
     return config;
 };
 exports.withViroAndroid = withViroAndroid;
