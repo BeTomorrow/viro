@@ -13,7 +13,8 @@ const withViroPods = (config) => {
         "ios",
         async (newConfig) => {
             const root = newConfig.modRequest.platformProjectRoot;
-            fs_1.default.readFile(`${root}/Podfile`, "utf-8", (err, data) => {
+            try {
+                let data = await fs_1.default.promises.readFile(`${root}/Podfile`, "utf-8");
                 // Check for New Architecture environment variable
                 if (!data.includes('ENV["RCT_NEW_ARCH_ENABLED"]') &&
                     !data.includes("RCT_NEW_ARCH_ENABLED=1")) {
@@ -34,11 +35,11 @@ const withViroPods = (config) => {
                         `  end`;
                 // Insert the pods into the Podfile
                 data = (0, insertLinesHelper_1.insertLinesHelper)(viroPods, "post_install do |installer|", data, -1);
-                fs_1.default.writeFile(`${root}/Podfile`, data, "utf-8", function (err) {
-                    if (err)
-                        console.log("Error writing Podfile");
-                });
-            });
+                await fs_1.default.promises.writeFile(`${root}/Podfile`, data, "utf-8");
+            }
+            catch (err) {
+                console.log("Error writing Podfile");
+            }
             return newConfig;
         },
     ]);

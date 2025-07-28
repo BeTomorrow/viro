@@ -1,11 +1,11 @@
 import {
   ConfigPlugin,
   ExportedConfigWithProps,
+  WarningAggregator,
   XcodeProject,
   withDangerousMod,
   withPlugins,
   withXcodeProject,
-  WarningAggregator,
 } from "@expo/config-plugins";
 import { ExpoConfig } from "@expo/config-types";
 import fs from "fs";
@@ -18,7 +18,9 @@ const withViroPods = (config: ExpoConfig) => {
     async (newConfig) => {
       const root = newConfig.modRequest.platformProjectRoot;
 
-      fs.readFile(`${root}/Podfile`, "utf-8", (err, data) => {
+      try {
+        let data = await fs.promises.readFile(`${root}/Podfile`, "utf-8");
+
         // Check for New Architecture environment variable
         if (
           !data.includes('ENV["RCT_NEW_ARCH_ENABLED"]') &&
@@ -54,10 +56,11 @@ const withViroPods = (config: ExpoConfig) => {
           -1
         );
 
-        fs.writeFile(`${root}/Podfile`, data, "utf-8", function (err) {
-          if (err) console.log("Error writing Podfile");
-        });
-      });
+        await fs.promises.writeFile(`${root}/Podfile`, data, "utf-8");
+      } catch (err) {
+        console.log("Error writing Podfile");
+      }
+
       return newConfig;
     },
   ]);
