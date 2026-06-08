@@ -34,69 +34,69 @@ const withViroPods = (config) => {
                     includeSemantics = options.ios?.includeSemantics;
                 }
             }
-            fs_1.default.readFile(`${root}/Podfile`, "utf-8", (err, data) => {
-                // Check for New Architecture environment variable
-                if (!data.includes('ENV["RCT_NEW_ARCH_ENABLED"]') &&
-                    !data.includes("RCT_NEW_ARCH_ENABLED=1")) {
-                    config_plugins_1.WarningAggregator.addWarningIOS("withViroIos", "ViroReact requires New Architecture to be enabled. " +
-                        "Please set RCT_NEW_ARCH_ENABLED=1 in your ios/.xcode.env file.");
-                }
-                // ViroReact with integrated Fabric support
-                let viroPods = `  # ViroReact with integrated New Architecture (Fabric) support\n` +
-                    `  # Automatically includes Fabric components when RCT_NEW_ARCH_ENABLED=1\n` +
-                    `  pod 'ViroReact', :path => '../node_modules/@reactvision/react-viro/ios'\n` +
-                    `  pod 'ViroKit', :path => '../node_modules/@reactvision/react-viro/ios/dist/ViroRenderer/'`;
-                // Add ARCore pods if enabled (explicitly via includeARCore/includeSemantics or implicitly via providers)
-                // ViroKit.podspec declares these as weak_frameworks, making ARCore optional at runtime
-                const needsARCoreForFeatures = cloudAnchorProvider === "arcore" || geospatialAnchorProvider === "arcore";
-                const shouldIncludeARCore = includeARCore === true || needsARCoreForFeatures;
-                const shouldIncludeSemantics = shouldIncludeARCore || includeSemantics === true;
-                if (shouldIncludeSemantics) {
-                    viroPods +=
-                        `\n\n  # ARCore SDK - Cloud Anchors, Geospatial, and Scene Semantics API\n` +
-                            `  # ViroKit uses weak linking for these frameworks, making ARCore optional at runtime.\n` +
-                            `  # ViroKit checks availability using NSClassFromString and gracefully degrades if not present.\n` +
-                            `  pod 'ARCore/CloudAnchors', '~> 1.51.0'`;
-                    // Add Geospatial pod if geospatial is enabled or full ARCore inclusion
-                    if (geospatialAnchorProvider === "arcore" || includeARCore === true) {
-                        viroPods +=
-                            `\n  pod 'ARCore/Geospatial', '~> 1.51.0'`;
-                    }
-                    // Add Semantics pod for Scene Semantics API (ML-based scene understanding)
-                    // Included whenever ARCore is present OR includeSemantics: true
-                    viroPods +=
-                        `\n  pod 'ARCore/Semantics', '~> 1.51.0'`;
-                }
-                // Add use_frameworks! if configured
-                // User's iosLinkage setting is respected; if not set and ARCore/Semantics is enabled, default to dynamic
-                const effectiveLinkage = iosLinkage || (shouldIncludeSemantics ? "dynamic" : undefined);
-                if (effectiveLinkage) {
-                    // Insert use_frameworks! before the target block
-                    let linkageComment;
-                    if (shouldIncludeSemantics && effectiveLinkage === "static") {
-                        // Warn user that static linkage may not work with ARCore
-                        linkageComment = `# WARNING: ARCore SDK typically requires dynamic frameworks.\n# Static linkage is set but may cause build issues with ARCore pods.`;
-                    }
-                    else if (shouldIncludeSemantics) {
-                        linkageComment = `# Framework linkage: ${effectiveLinkage} (ARCore requires dynamic frameworks)`;
-                    }
-                    else {
-                        linkageComment = `# Framework linkage configured via app.json (iosLinkage: "${effectiveLinkage}")`;
-                    }
-                    data = (0, insertLinesHelper_1.insertLinesHelper)(`${linkageComment}\nuse_frameworks! :linkage => :${effectiveLinkage}\n`, "target '", data, -1);
-                }
-                // Add New Architecture enforcement
+            let data = await fs_1.default.promises.readFile(`${root}/Podfile`, "utf-8");
+            // Check for New Architecture environment variable
+            if (!data.includes('ENV["RCT_NEW_ARCH_ENABLED"]') &&
+                !data.includes("RCT_NEW_ARCH_ENABLED=1")) {
+                config_plugins_1.WarningAggregator.addWarningIOS("withViroIos", "ViroReact requires New Architecture to be enabled. " +
+                    "Please set RCT_NEW_ARCH_ENABLED=1 in your ios/.xcode.env file.");
+            }
+            // ViroReact with integrated Fabric support
+            let viroPods = `  # ViroReact with integrated New Architecture (Fabric) support\n` +
+                `  # Automatically includes Fabric components when RCT_NEW_ARCH_ENABLED=1\n` +
+                `  pod 'ViroReact', :path => '../node_modules/@reactvision/react-viro/ios'\n` +
+                `  pod 'ViroKit', :path => '../node_modules/@reactvision/react-viro/ios/dist/ViroRenderer/'`;
+            // Add ARCore pods if enabled (explicitly via includeARCore/includeSemantics or implicitly via providers)
+            // ViroKit.podspec declares these as weak_frameworks, making ARCore optional at runtime
+            const needsARCoreForFeatures = cloudAnchorProvider === "arcore" || geospatialAnchorProvider === "arcore";
+            const shouldIncludeARCore = includeARCore === true || needsARCoreForFeatures;
+            const shouldIncludeSemantics = shouldIncludeARCore || includeSemantics === true;
+            if (shouldIncludeSemantics) {
                 viroPods +=
-                    `\n\n  # Enforce New Architecture requirement\n` +
-                        `  # ViroReact 2.43.1+ requires React Native New Architecture\n` +
-                        `  if ENV['RCT_NEW_ARCH_ENABLED'] != '1'\n` +
-                        `    raise "ViroReact requires New Architecture to be enabled. Please set RCT_NEW_ARCH_ENABLED=1 in ios/.xcode.env"\n` +
-                        `  end`;
-                // Insert the pods into the Podfile
-                data = (0, insertLinesHelper_1.insertLinesHelper)(viroPods, "post_install do |installer|", data, -1);
-                // Add ViroKit ARCore weak linking post_install hook if ARCore is enabled
-                if (shouldIncludeARCore) {
-                    const weakLinkingHook = `    # ViroKit ARCore weak linking - makes ARCore frameworks optional at runtime
+                    `\n\n  # ARCore SDK - Cloud Anchors, Geospatial, and Scene Semantics API\n` +
+                        `  # ViroKit uses weak linking for these frameworks, making ARCore optional at runtime.\n` +
+                        `  # ViroKit checks availability using NSClassFromString and gracefully degrades if not present.\n` +
+                        `  pod 'ARCore/CloudAnchors', '~> 1.51.0'`;
+                // Add Geospatial pod if geospatial is enabled or full ARCore inclusion
+                if (geospatialAnchorProvider === "arcore" || includeARCore === true) {
+                    viroPods +=
+                        `\n  pod 'ARCore/Geospatial', '~> 1.51.0'`;
+                }
+                // Add Semantics pod for Scene Semantics API (ML-based scene understanding)
+                // Included whenever ARCore is present OR includeSemantics: true
+                viroPods +=
+                    `\n  pod 'ARCore/Semantics', '~> 1.51.0'`;
+            }
+            // Add use_frameworks! if configured
+            // User's iosLinkage setting is respected; if not set and ARCore/Semantics is enabled, default to dynamic
+            const effectiveLinkage = iosLinkage || (shouldIncludeSemantics ? "dynamic" : undefined);
+            if (effectiveLinkage) {
+                // Insert use_frameworks! before the target block
+                let linkageComment;
+                if (shouldIncludeSemantics && effectiveLinkage === "static") {
+                    // Warn user that static linkage may not work with ARCore
+                    linkageComment = `# WARNING: ARCore SDK typically requires dynamic frameworks.\n# Static linkage is set but may cause build issues with ARCore pods.`;
+                }
+                else if (shouldIncludeSemantics) {
+                    linkageComment = `# Framework linkage: ${effectiveLinkage} (ARCore requires dynamic frameworks)`;
+                }
+                else {
+                    linkageComment = `# Framework linkage configured via app.json (iosLinkage: "${effectiveLinkage}")`;
+                }
+                data = (0, insertLinesHelper_1.insertLinesHelper)(`${linkageComment}\nuse_frameworks! :linkage => :${effectiveLinkage}\n`, "target '", data, -1);
+            }
+            // Add New Architecture enforcement
+            viroPods +=
+                `\n\n  # Enforce New Architecture requirement\n` +
+                    `  # ViroReact 2.43.1+ requires React Native New Architecture\n` +
+                    `  if ENV['RCT_NEW_ARCH_ENABLED'] != '1'\n` +
+                    `    raise "ViroReact requires New Architecture to be enabled. Please set RCT_NEW_ARCH_ENABLED=1 in ios/.xcode.env"\n` +
+                    `  end`;
+            // Insert the pods into the Podfile
+            data = (0, insertLinesHelper_1.insertLinesHelper)(viroPods, "post_install do |installer|", data, -1);
+            // Add ViroKit ARCore weak linking post_install hook if ARCore is enabled
+            if (shouldIncludeARCore) {
+                const weakLinkingHook = `    # ViroKit ARCore weak linking - makes ARCore frameworks optional at runtime
     # Only applied when ARCore pods are installed to prevent linker errors
     virokit_targets = installer.pods_project.targets.select { |target|
       target.name.include?('ViroKit') ||
@@ -127,14 +127,15 @@ const withViroPods = (config) => {
       end
     end
 `;
-                    // Insert weak linking hook inside post_install block (right after the block starts)
-                    data = (0, insertLinesHelper_1.insertLinesHelper)(weakLinkingHook, "post_install do |installer|", data, 1);
-                }
-                fs_1.default.writeFile(`${root}/Podfile`, data, "utf-8", function (err) {
-                    if (err)
-                        console.log("Error writing Podfile");
-                });
-            });
+                // Insert weak linking hook inside post_install block (right after the block starts)
+                data = (0, insertLinesHelper_1.insertLinesHelper)(weakLinkingHook, "post_install do |installer|", data, 1);
+            }
+            try {
+                await fs_1.default.promises.writeFile(`${root}/Podfile`, data, "utf-8");
+            }
+            catch (err) {
+                console.log("Error writing Podfile", err);
+            }
             return newConfig;
         },
     ]);
@@ -241,9 +242,9 @@ const withDefaultInfoPlist = (config, _props) => {
 exports.withDefaultInfoPlist = withDefaultInfoPlist;
 const withViroIos = (config, props) => {
     config = (0, config_plugins_1.withPlugins)(config, [[withViroPods, props]]);
-    (0, exports.withDefaultInfoPlist)(config, props);
-    withEnabledBitcode(config);
-    withExcludedSimulatorArchitectures(config);
+    config = (0, exports.withDefaultInfoPlist)(config, props);
+    config = withEnabledBitcode(config);
+    config = withExcludedSimulatorArchitectures(config);
     return config;
 };
 exports.withViroIos = withViroIos;

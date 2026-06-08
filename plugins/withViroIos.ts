@@ -1,12 +1,13 @@
-import {
-  ConfigPlugin,
-  ExportedConfigWithProps,
-  XcodeProject,
-  withDangerousMod,
-  withPlugins,
-  withXcodeProject,
-  WarningAggregator,
-} from "@expo/config-plugins";
+import
+  {
+    ConfigPlugin,
+    ExportedConfigWithProps,
+    WarningAggregator,
+    XcodeProject,
+    withDangerousMod,
+    withPlugins,
+    withXcodeProject,
+  } from "@expo/config-plugins";
 import { ExpoConfig } from "@expo/config-types";
 import fs from "fs";
 import { insertLinesHelper } from "./util/insertLinesHelper";
@@ -43,7 +44,7 @@ const withViroPods = (config: ExpoConfig) => {
         }
       }
 
-      fs.readFile(`${root}/Podfile`, "utf-8", (err, data) => {
+      let data = await fs.promises.readFile(`${root}/Podfile`, "utf-8");
         // Check for New Architecture environment variable
         if (
           !data.includes('ENV["RCT_NEW_ARCH_ENABLED"]') &&
@@ -169,10 +170,11 @@ const withViroPods = (config: ExpoConfig) => {
           );
         }
 
-        fs.writeFile(`${root}/Podfile`, data, "utf-8", function (err) {
-          if (err) console.log("Error writing Podfile");
-        });
-      });
+        try {
+        await fs.promises.writeFile(`${root}/Podfile`, data, "utf-8");
+        } catch(err) {
+          console.log("Error writing Podfile", err);
+        }
       return newConfig;
     },
   ]);
@@ -304,8 +306,8 @@ export const withViroIos: ConfigPlugin<ViroConfigurationOptions> = (
   props
 ) => {
   config = withPlugins(config, [[withViroPods, props]]);
-  withDefaultInfoPlist(config, props);
-  withEnabledBitcode(config);
-  withExcludedSimulatorArchitectures(config);
+  config = withDefaultInfoPlist(config, props);
+  config = withEnabledBitcode(config);
+  config = withExcludedSimulatorArchitectures(config);
   return config;
 };

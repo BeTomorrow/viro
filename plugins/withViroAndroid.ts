@@ -1,13 +1,14 @@
-import {
-  ConfigPlugin,
-  ExportedConfigWithProps,
-  withAndroidManifest,
-  withAppBuildGradle,
-  withDangerousMod,
-  withProjectBuildGradle,
-  withSettingsGradle,
-  WarningAggregator,
-} from "@expo/config-plugins";
+import
+  {
+    ConfigPlugin,
+    ExportedConfigWithProps,
+    WarningAggregator,
+    withAndroidManifest,
+    withAppBuildGradle,
+    withDangerousMod,
+    withProjectBuildGradle,
+    withSettingsGradle,
+  } from "@expo/config-plugins";
 import type { ExpoConfig } from "@expo/config-types";
 import fs from "fs";
 import path from "path";
@@ -50,7 +51,7 @@ const withBranchAndroid: ConfigPlugin<ViroConfigurationOptions> = (config) => {
         );
       }
 
-      fs.readFile(mainApplicationPath, "utf-8", (err, data) => {
+      let data = await fs.promises.readFile(mainApplicationPath, "utf-8");
         const packageName = config?.android?.package;
         if (isJava) {
           data = insertLinesHelper(
@@ -149,10 +150,12 @@ const withBranchAndroid: ConfigPlugin<ViroConfigurationOptions> = (config) => {
           }
         }
 
-        fs.writeFile(mainApplicationPath, data, "utf-8", function (err) {
-          if (err) console.log("Error writing MainApplication.java");
-        });
-      });
+        try {
+          await fs.promises.writeFile(mainApplicationPath, data, "utf-8");
+        } catch(err) {
+          console.log("Error writing MainApplication.java", err);
+        }
+      
       return config;
     },
   ]);
